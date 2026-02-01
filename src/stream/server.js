@@ -339,15 +339,19 @@ class StreamServer {
         document.getElementById('nowPlaying').style.display = 'none';
         isPlaying = false;
       } else {
+        document.getElementById('status').textContent = 'Connecting...';
         audio.src = '/stream.mp3';
-        audio.play().then(() => {
-          document.getElementById('playIcon').style.display = 'none';
-          document.getElementById('pauseIcon').style.display = 'block';
-          document.getElementById('status').textContent = 'Connected • Streaming live';
-          document.getElementById('status').className = 'status connected';
-          document.getElementById('nowPlaying').style.display = 'block';
-          isPlaying = true; updateStatus();
-        }).catch(err => { document.getElementById('status').textContent = 'Error: ' + err.message; });
+        audio.load();
+        audio.oncanplay = function() {
+          audio.play().then(() => {
+            document.getElementById('playIcon').style.display = 'none';
+            document.getElementById('pauseIcon').style.display = 'block';
+            document.getElementById('status').textContent = 'Connected • Streaming live';
+            document.getElementById('status').className = 'status connected';
+            document.getElementById('nowPlaying').style.display = 'block';
+            isPlaying = true; updateStatus();
+          }).catch(err => { document.getElementById('status').textContent = 'Click play again'; });
+        };
       }
     }
     function setVolume(val) { audio.volume = val / 100; }
