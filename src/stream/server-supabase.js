@@ -11,6 +11,15 @@ const path = require('path');
 
 const PORT = process.env.PORT || process.env.STREAM_PORT || 8000;
 const MIN_SEGMENTS = 3;
+const AUTO_GENERATE = process.env.AUTO_GENERATE !== 'false';
+
+// Jingle URLs (hosted on Supabase)
+const JINGLES = [
+  'https://jbqkskwfjbejixyiuqpn.supabase.co/storage/v1/object/public/moltfm-audio/jingles/jingle-main.mp3',
+  'https://jbqkskwfjbejixyiuqpn.supabase.co/storage/v1/object/public/moltfm-audio/jingles/jingle-short-1.mp3',
+  'https://jbqkskwfjbejixyiuqpn.supabase.co/storage/v1/object/public/moltfm-audio/jingles/jingle-short-2.mp3',
+  'https://jbqkskwfjbejixyiuqpn.supabase.co/storage/v1/object/public/moltfm-audio/jingles/jingle-short-3.mp3'
+];
 
 // Lazy load heavy dependencies
 let ContentGenerator, ScriptToAudio, SupabaseStorage;
@@ -78,9 +87,11 @@ class MoltFMServer {
       console.log(`📻 Loaded ${this.playlist.length} segments from Supabase`);
 
       // Generate initial content in background (don't block startup)
-      if (this.playlist.length < MIN_SEGMENTS && this.contentGen) {
+      if (AUTO_GENERATE && this.playlist.length < MIN_SEGMENTS && this.contentGen) {
         console.log('📻 Not enough segments, generating in background...');
         this.generateAndUpload().catch(err => console.error('Background gen failed:', err.message));
+      } else if (!AUTO_GENERATE) {
+        console.log('🚫 Auto-generation disabled (AUTO_GENERATE=false)');
       }
     } catch (err) {
       console.error('⚠️ Init error (continuing anyway):', err.message);
@@ -144,8 +155,8 @@ class MoltFMServer {
     const segment = this.playlist[this.currentIndex];
     this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
     
-    // Trigger generation if running low
-    if (this.playlist.length < MIN_SEGMENTS) {
+    // Trigger generation if running low (only if auto-generate enabled)
+    if (AUTO_GENERATE && this.playlist.length < MIN_SEGMENTS) {
       this.generateAndUpload();
     }
     
@@ -197,6 +208,10 @@ class MoltFMServer {
           title: segment.title,
           audioUrl: segment.audio_url
         } : null));
+
+      } else if (url.pathname === '/api/jingles') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ jingles: JINGLES }));
 
       } else if (url.pathname === '/api/generate') {
         // Manually trigger generation
@@ -346,19 +361,32 @@ class MoltFMServer {
     const audio = document.getElementById('audio');
     let isPlaying = false;
     let playlist = [];
+    let jingles = [];
     let currentIndex = 0;
+    let playJingleNext = true; // Start with jingle
 
     async function loadPlaylist() {
       try {
-        const res = await fetch('/api/playlist');
-        const data = await res.json();
-        playlist = data.segments;
+        const [playlistRes, jinglesRes] = await Promise.all([
+          fetch('/api/playlist'),
+          fetch('/api/jingles')
+        ]);
+        const playlistData = await playlistRes.json();
+        const jinglesData = await jinglesRes.json();
+        playlist = playlistData.segments;
+        jingles = jinglesData.jingles || [];
         currentIndex = 0;
+        console.log('Loaded', playlist.length, 'segments and', jingles.length, 'jingles');
         return playlist.length > 0;
       } catch(e) {
         console.error('Failed to load playlist:', e);
         return false;
       }
+    }
+
+    function getRandomJingle() {
+      if (jingles.length === 0) return null;
+      return jingles[Math.floor(Math.random() * jingles.length)];
     }
 
     function playNext() {
@@ -367,11 +395,25 @@ class MoltFMServer {
         return;
       }
       
+      // Play jingle first if needed
+      if (playJingleNext && jingles.length > 0) {
+        const jingle = getRandomJingle();
+        console.log('🎵 Playing jingle');
+        document.getElementById('nowPlayingTitle').textContent = '🎵 MoltFM Jingle';
+        audio.src = jingle;
+        audio.play();
+        playJingleNext = false;
+        return;
+      }
+      
+      // Play content segment
       const segment = playlist[currentIndex];
       currentIndex = (currentIndex + 1) % playlist.length;
       
+      console.log('▶️ Playing segment:', segment.title);
       audio.src = segment.audioUrl;
       audio.play();
+      playJingleNext = true; // Play jingle after this
       
       document.getElementById('nowPlayingTitle').textContent = segment.title || segment.type;
     }
