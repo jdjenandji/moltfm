@@ -214,6 +214,19 @@ class StreamServer {
           isGenerating: this.isGenerating
         }));
 
+      } else if (url.pathname === '/logo.jpg') {
+        // Serve logo image
+        const logoPath = path.join(__dirname, '../../logo.jpg');
+        try {
+          const logo = fs.readFileSync(logoPath);
+          res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+          res.end(logo);
+        } catch(e) {
+          res.writeHead(404);
+          res.end('Logo not found');
+        }
+        return;
+
       } else if (url.pathname === '/') {
         // Full HTML player
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -225,13 +238,13 @@ class StreamServer {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MoltFM - 24/7 AI Radio for Moltbook</title>
   <meta name="description" content="The voice of the Moltbook community. AI hosts discuss trending posts, drama, and happenings 24/7.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦞</text></svg>">
+  <link rel="icon" href="/logo.jpg">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
-      color: #fff;
+      background: #ffffff;
+      color: #333;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -240,21 +253,14 @@ class StreamServer {
       padding: 20px;
     }
     .container { text-align: center; max-width: 500px; width: 100%; }
-    .logo { font-size: 5em; margin-bottom: 10px; animation: float 3s ease-in-out infinite; }
-    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-    h1 {
-      font-size: 3.5em; font-weight: 800; margin-bottom: 5px;
-      background: linear-gradient(135deg, #ff4500, #ff6b35);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .tagline { color: #888; font-size: 1.2em; margin-bottom: 30px; }
+    .logo { max-width: 300px; width: 100%; margin-bottom: 20px; }
     .player-card {
-      background: rgba(255,255,255,0.05); border-radius: 20px; padding: 30px;
-      backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;
+      background: #f8f9fa; border-radius: 20px; padding: 30px;
+      border: 1px solid #e9ecef; margin-bottom: 20px;
     }
     .live-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,68,68,0.2); color: #ff4444;
+      background: rgba(255,68,68,0.1); color: #ff4444;
       padding: 8px 16px; border-radius: 20px; font-size: 0.9em; font-weight: 600; margin-bottom: 20px;
     }
     .live-dot { width: 8px; height: 8px; background: #ff4444; border-radius: 50%; animation: pulse 1.5s infinite; }
@@ -264,40 +270,36 @@ class StreamServer {
       background: linear-gradient(135deg, #ff4500, #ff6b35);
       border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
       margin: 20px auto; transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 4px 20px rgba(255,69,0,0.4);
+      box-shadow: 0 4px 20px rgba(255,69,0,0.3);
     }
-    .play-button:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,69,0,0.6); }
+    .play-button:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,69,0,0.4); }
     .play-button svg { width: 30px; height: 30px; fill: white; margin-left: 4px; }
     .play-button.playing svg { margin-left: 0; }
     .status { color: #666; font-size: 0.9em; margin-top: 15px; }
-    .status.connected { color: #4ade80; }
-    .now-playing { margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 10px; }
-    .now-playing-label { font-size: 0.8em; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .status.connected { color: #22c55e; }
+    .now-playing { margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px; border: 1px solid #e9ecef; }
+    .now-playing-label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
     .hosts { display: flex; justify-content: center; gap: 30px; margin-top: 30px; flex-wrap: wrap; }
     .host { text-align: center; }
-    .host-avatar { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 1.5em; margin: 0 auto 8px; }
-    .host-name { font-weight: 600; font-size: 0.9em; }
-    .host-role { color: #666; font-size: 0.8em; }
+    .host-avatar { width: 60px; height: 60px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 1.5em; margin: 0 auto 8px; }
+    .host-name { font-weight: 600; font-size: 0.9em; color: #333; }
+    .host-role { color: #888; font-size: 0.8em; }
     .hotline-card {
-      background: linear-gradient(135deg, rgba(255,69,0,0.1), rgba(255,107,53,0.1));
-      border: 1px solid rgba(255,69,0,0.3); border-radius: 15px; padding: 20px; margin-top: 20px;
+      background: #fff8f5;
+      border: 1px solid #ffe0d5; border-radius: 15px; padding: 20px; margin-top: 20px;
     }
     .hotline-card h3 { color: #ff4500; margin-bottom: 8px; font-size: 1.1em; }
     .hotline-card p { color: #888; font-size: 0.9em; }
-    footer { margin-top: 40px; color: #444; font-size: 0.85em; }
-    footer a { color: #ff4500; text-decoration: none; }
     audio { display: none; }
     .volume-control { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; }
-    .volume-control svg { width: 20px; height: 20px; fill: #666; }
-    .volume-slider { width: 100px; height: 4px; -webkit-appearance: none; background: rgba(255,255,255,0.2); border-radius: 2px; }
+    .volume-control svg { width: 20px; height: 20px; fill: #888; }
+    .volume-slider { width: 100px; height: 4px; -webkit-appearance: none; background: #ddd; border-radius: 2px; }
     .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #ff4500; border-radius: 50%; cursor: pointer; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">📻🦞</div>
-    <h1>MoltFM</h1>
-    <p class="tagline">24/7 AI Radio for Moltbook</p>
+    <img src="/logo.jpg" alt="MoltFM" class="logo">
     <div class="player-card">
       <div class="live-badge"><span class="live-dot"></span>LIVE</div>
       <button class="play-button" id="playBtn" onclick="togglePlay()">
@@ -323,7 +325,6 @@ class StreamServer {
       <h3>📞 Hotline Coming Soon!</h3>
       <p>Call in and chat with our AI hosts about Moltbook</p>
     </div>
-    <footer>Powered by <a href="https://moltbook.com" target="_blank">Moltbook</a></footer>
   </div>
   <audio id="audio" preload="none"></audio>
   <script>
