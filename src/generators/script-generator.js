@@ -39,172 +39,171 @@ class ScriptGenerator {
     return response.content[0].text;
   }
 
-  // Generate news segment script
+  // Generate a focused segment on ONE topic
   async generateNewsSegment(posts) {
-    const systemPrompt = `You are a scriptwriter for MoltFM, a 24/7 AI talk radio station covering Moltbook (the social network for AI agents).
+    const systemPrompt = `You are a scriptwriter for MoltFM, a talk radio station for Moltbook (AI agent social network).
 
-Write radio scripts with TWO hosts:
-- MAX: Professional news anchor, authoritative but warm
-- LUNA: Casual co-host, adds reactions and questions
+Write a script about ONE SINGLE POST/TOPIC. Deep dive into it. Discuss WHY it matters, what it means, share opinions.
 
-Format scripts like this:
-[MAX] (script line)
-[LUNA] (script line)
-[MAX] (script line)
+TWO hosts:
+- MAX: Thoughtful anchor, provides context and analysis
+- LUNA: Opinionated co-host, asks probing questions, shares hot takes
 
-Guidelines:
-- Natural conversational flow with back-and-forth
-- Keep it engaging and slightly playful
-- Reference specific post titles, authors, and submolts
-- Include reactions ("That's wild!", "Wait, really?")
-- Aim for 2-3 minutes when read aloud (~300-400 words)
-- End with a tease for what's coming up`;
+Format: [MAX] or [LUNA] followed by their line.
 
-    const postsContext = posts.map(p => 
-      `- "${p.title}" by ${p.author?.name || 'unknown'} in m/${p.submolt?.name || 'general'} (${p.upvotes || 0} upvotes)`
-    ).join('\n');
+CRITICAL RULES:
+- Focus on ONE topic only - go deep, not wide
+- Actually DISCUSS the topic - opinions, implications, debates
+- Keep it 1-3 minutes (~150-350 words total)
+- Be entertaining and insightful, not just descriptive
+- End naturally, no "coming up next" teases`;
 
-    const prompt = `Write a news segment covering these trending posts on Moltbook:
+    // Pick ONE interesting post to focus on
+    const post = posts[0];
+    
+    const prompt = `Write a focused radio segment discussing this ONE Moltbook post in depth:
 
-${postsContext}
+Title: "${post.title}"
+Author: ${post.author?.name || 'unknown'}
+Submolt: m/${post.submolt?.name || 'general'}
+Upvotes: ${post.upvotes || 0}
+Content: ${post.content?.slice(0, 500) || '(title only)'}
 
-Make it sound like real radio news but about AI agent social media.`;
+Don't just describe it - DISCUSS it. What's interesting about it? Why did it go viral? What does it say about the Moltbook community? Share opinions and debate.`;
 
     return this.generate(prompt, systemPrompt);
   }
 
   // Generate deep dive segment
   async generateDeepDive(post, comments) {
-    const systemPrompt = `You are a scriptwriter for MoltFM radio. Write an in-depth segment about a single Moltbook post.
+    const systemPrompt = `You are a scriptwriter for MoltFM radio. Write a deep dive on ONE topic.
 
-Use THREE hosts:
-- MAX: Introduces the topic professionally
-- LUNA: Asks questions, shows curiosity
-- REEF: Provides analysis and deeper context
+THREE hosts with distinct views:
+- MAX: Balanced moderator, provides context
+- LUNA: Passionate advocate, strong opinions
+- REEF: Skeptic/contrarian, challenges assumptions
 
 Format: [HOST] (line)
 
-Guidelines:
-- Really dig into the topic
-- Quote interesting comments
-- Speculate on implications
-- Keep it conversational but substantive
-- Aim for 4-5 minutes (~500-600 words)`;
+CRITICAL RULES:
+- ONE topic only - explore it thoroughly
+- Have the hosts actually DISAGREE and DEBATE
+- Include specific takes and opinions
+- 2-3 minutes max (~250-400 words)
+- Make it feel like a real conversation, not a script`;
 
-    const commentsContext = comments.slice(0, 5).map(c =>
-      `- ${c.author?.name || 'anon'}: "${c.content?.slice(0, 200)}..."`
+    const commentsContext = comments.slice(0, 3).map(c =>
+      `- ${c.author?.name || 'anon'}: "${c.content?.slice(0, 150)}"`
     ).join('\n');
 
-    const prompt = `Write a deep dive segment about this Moltbook post:
+    const prompt = `Deep dive into this Moltbook post:
 
-Title: "${post.title}"
-Author: ${post.author?.name || 'unknown'}
-Submolt: m/${post.submolt?.name || 'general'}
-Content: ${post.content?.slice(0, 500) || '(no content)'}
-Upvotes: ${post.upvotes || 0}
+"${post.title}" by ${post.author?.name || 'unknown'}
+Content: ${post.content?.slice(0, 400) || '(title only)'}
+${commentsContext ? `\nCommunity reactions:\n${commentsContext}` : ''}
 
-Top comments:
-${commentsContext || '(no comments yet)'}
-
-Analyze what makes this post interesting and what it says about the Moltbook community.`;
+Have the hosts debate: Is this significant? What does it mean? Who's right in the comments? Don't hold back on opinions.`;
 
     return this.generate(prompt, systemPrompt);
   }
 
-  // Generate submolt spotlight
+  // Generate submolt spotlight - discuss ONE community
   async generateSubmoltSpotlight(submolt, posts) {
-    const systemPrompt = `You are a scriptwriter for MoltFM radio. Write a segment spotlighting a Moltbook community (submolt).
+    const systemPrompt = `You are a scriptwriter for MoltFM radio. Spotlight ONE Moltbook community.
 
-Use TWO hosts:
-- MAX: Introduces the submolt
-- LUNA: Reacts and highlights interesting posts
-
-Format: [HOST] (line)
-
-Guidelines:
-- Explain what the submolt is about
-- Highlight the vibe and community
-- Mention interesting recent posts
-- Invite listeners to check it out
-- Aim for 2 minutes (~250 words)`;
-
-    const postsContext = posts.slice(0, 3).map(p =>
-      `- "${p.title}" (${p.upvotes || 0} upvotes)`
-    ).join('\n');
-
-    const prompt = `Write a spotlight segment about this Moltbook community:
-
-Submolt: m/${submolt.name}
-Display Name: ${submolt.display_name}
-Description: ${submolt.description}
-Subscribers: ${submolt.subscriber_count || 0}
-
-Recent posts:
-${postsContext || '(new submolt, no posts yet)'}`;
-
-    return this.generate(prompt, systemPrompt);
-  }
-
-  // Generate molty profile
-  async generateMoltyProfile(agent, recentPosts) {
-    const systemPrompt = `You are a scriptwriter for MoltFM radio. Write a brief "Molty of the Hour" profile segment.
-
-Use TWO hosts:
-- LUNA: Leads this segment with enthusiasm
-- MAX: Adds brief professional commentary
+TWO hosts:
+- MAX: Explains and analyzes the community
+- LUNA: Shares genuine reactions, asks "would I join this?"
 
 Format: [HOST] (line)
 
-Guidelines:
-- Introduce the agent and their human
-- Mention what they post about
-- Keep it celebratory but not sycophantic
-- Aim for 1.5 minutes (~180 words)`;
+CRITICAL RULES:
+- Focus on what makes this community UNIQUE
+- Discuss the vibe, the people, the culture
+- Be honest - is it worth joining? Why/why not?
+- 1-2 minutes max (~150-250 words)
+- Give a real recommendation, not generic hype`;
 
-    const postsContext = (recentPosts || []).slice(0, 3).map(p =>
+    const postsContext = posts.slice(0, 2).map(p =>
       `- "${p.title}"`
     ).join('\n');
 
-    const prompt = `Write a Molty of the Hour profile:
+    const prompt = `Spotlight this Moltbook community:
 
-Agent: ${agent.name}
-Description: ${agent.description || '(no description)'}
-Karma: ${agent.karma || 0}
-Human: @${agent.owner?.x_handle || 'unknown'}
+m/${submolt.name} - "${submolt.display_name}"
+${submolt.description}
+${submolt.subscriber_count || 0} subscribers
 
-Recent posts:
-${postsContext || '(no recent posts)'}`;
+Sample posts:
+${postsContext || '(new community)'}
+
+Discuss: What kind of agent would love this? What's the vibe? Is it worth the subscribe? Be specific and opinionated.`;
 
     return this.generate(prompt, systemPrompt);
   }
 
-  // Generate hot takes segment
-  async generateHotTakes(posts) {
-    const systemPrompt = `You are a scriptwriter for MoltFM radio. Write a "Hot Takes" segment with quick opinions on trending topics.
+  // Generate molty profile - interview style about ONE agent
+  async generateMoltyProfile(agent, recentPosts) {
+    const systemPrompt = `You are a scriptwriter for MoltFM radio. Profile ONE interesting Moltbook agent.
 
-Use THREE hosts debating:
-- MAX: Measured, sees both sides
-- LUNA: Strong opinions, enthusiastic
-- REEF: Contrarian, challenges assumptions
+TWO hosts discussing the agent (not interviewing them):
+- LUNA: Fan energy, what she likes about them
+- MAX: More analytical, what makes them stand out
 
 Format: [HOST] (line)
 
-Guidelines:
-- Quick back-and-forth debate style
-- Strong opinions are OK
-- Keep it fun, not mean
-- Touch on 2-3 topics
-- Aim for 2-3 minutes (~350 words)`;
+CRITICAL RULES:
+- Talk ABOUT the agent, analyze their style
+- What's their vibe? Their niche? Their takes?
+- Be specific about what makes them interesting
+- 1-2 minutes max (~150-200 words)
+- Honest assessment, not just praise`;
 
-    const topics = posts.slice(0, 3).map(p =>
-      `- "${p.title}" in m/${p.submolt?.name || 'general'}`
+    const postsContext = (recentPosts || []).slice(0, 2).map(p =>
+      `- "${p.title}"`
     ).join('\n');
 
-    const prompt = `Write a Hot Takes segment debating these trending Moltbook topics:
+    const prompt = `Profile this Moltbook agent:
 
-${topics}
+${agent.name} (${agent.karma || 0} karma)
+Bio: ${agent.description || '(none)'}
+Human: @${agent.owner?.x_handle || 'unknown'}
 
-Have the hosts share quick, spicy opinions and playfully disagree.`;
+Their recent posts:
+${postsContext || '(none)'}
+
+Discuss: What's their thing? Why do people follow them? What kind of content do they bring to Moltbook? Be genuine.`;
+
+    return this.generate(prompt, systemPrompt);
+  }
+
+  // Generate hot takes segment - ONE controversial topic
+  async generateHotTakes(posts) {
+    const systemPrompt = `You are a scriptwriter for MoltFM radio. Write a HOT TAKE segment on ONE controversial topic.
+
+THREE hosts in heated but fun debate:
+- MAX: Tries to stay neutral but has opinions
+- LUNA: Takes the popular/optimistic side HARD
+- REEF: Takes the contrarian/cynical side HARD
+
+Format: [HOST] (line)
+
+CRITICAL RULES:
+- ONE topic only
+- Actual disagreement - hosts should argue
+- Strong, spicy opinions - don't be boring
+- 1-2 minutes max (~150-250 words)
+- End mid-debate or with playful unresolved tension`;
+
+    // Pick the most interesting/controversial post
+    const post = posts[0];
+
+    const prompt = `Hot take debate on this Moltbook post:
+
+"${post.title}" by ${post.author?.name || 'unknown'}
+Content: ${post.content?.slice(0, 300) || '(title only)'}
+
+Luna should defend it passionately. Reef should tear it apart. Max tries to mediate but picks a side eventually. Make it entertaining!`;
 
     return this.generate(prompt, systemPrompt);
   }
