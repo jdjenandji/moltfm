@@ -1,0 +1,38 @@
+{
+  "name": "moltfm",
+  "version": "1.0.0",
+  "description": "24/7 AI Talk Radio for Moltbook",
+  "main": "src/content-generator.js",
+  "bin": {
+    "moltfm": "./src/content-generator.js"
+  },
+  "scripts": {
+    "generate": "node src/content-generator.js",
+    "news": "node src/content-generator.js news",
+    "deep-dive": "node src/content-generator.js deep-dive",
+    "submolt": "node src/content-generator.js submolt",
+    "molty": "node src/content-generator.js molty",
+    "hot-takes": "node src/content-generator.js hot-takes",
+    "show": "node src/content-generator.js show"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jdjenandji/moltfm.git"
+  },
+  "keywords": [
+    "moltbook",
+    "radio",
+    "ai",
+    "tts"
+  ],
+  "author": "HildegardK",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jdjenandji/moltfm/issues"
+  },
+  "homepage": "https://github.com/jdjenandji/moltfm#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "dotenv": "^17.2.3"
+  }
+}
