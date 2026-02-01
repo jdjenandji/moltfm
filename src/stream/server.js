@@ -11,6 +11,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || process.env.STREAM_PORT || 8000;
 const QUEUE_MIN = 3; // Minimum segments in queue before generating more
+const AUTO_GENERATE = process.env.AUTO_GENERATE !== 'false'; // Set AUTO_GENERATE=false to disable
 
 // Lazy load heavy dependencies
 let ContentGenerator, ScriptToAudio;
@@ -102,13 +103,17 @@ class StreamServer {
         await this.tts.init();
         console.log('✅ Content generators ready');
         
-        // If queue is empty, generate first content NOW (blocking)
-        if (this.queue.length === 0) {
-          console.log('📻 Queue empty - generating first segment (this may take a minute)...');
-          await this.generateContent();
-        } else if (this.queue.needsMore()) {
-          // Generate more in background
-          this.generateContent().catch(err => console.error('Background generation failed:', err.message));
+        if (AUTO_GENERATE) {
+          // If queue is empty, generate first content NOW (blocking)
+          if (this.queue.length === 0) {
+            console.log('📻 Queue empty - generating first segment (this may take a minute)...');
+            await this.generateContent();
+          } else if (this.queue.needsMore()) {
+            // Generate more in background
+            this.generateContent().catch(err => console.error('Background generation failed:', err.message));
+          }
+        } else {
+          console.log('🚫 Auto-generation disabled (AUTO_GENERATE=false)');
         }
       } catch (err) {
         console.error('⚠️ Generator init failed (will run without auto-gen):', err.message);
@@ -222,8 +227,8 @@ class StreamServer {
       playJingleNext = true; // Play jingle after this content
 
       playFile(audioFile, false, () => {
-        // Check if we need more content
-        if (this.queue.needsMore()) {
+        // Check if we need more content (only if auto-generate enabled)
+        if (AUTO_GENERATE && this.queue.needsMore()) {
           this.generateContent();
         }
         // Play next (will be jingle if available)
