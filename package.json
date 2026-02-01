@@ -13,7 +13,10 @@
     "submolt": "node src/content-generator.js submolt",
     "molty": "node src/content-generator.js molty",
     "hot-takes": "node src/content-generator.js hot-takes",
-    "show": "node src/content-generator.js show"
+    "show": "node src/content-generator.js show",
+    "tts": "node src/tts/elevenlabs.js",
+    "tts:voices": "node src/tts/elevenlabs.js voices",
+    "tts:usage": "node src/tts/elevenlabs.js usage"
   },
   "repository": {
     "type": "git",
