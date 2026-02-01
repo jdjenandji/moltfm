@@ -166,7 +166,7 @@ class StreamServer {
 
   // Stream audio to a client using ffmpeg for smooth streaming
   streamToClient(res) {
-    let playJingleNext = false; // Toggle: content -> jingle -> content -> ...
+    let playJingleNext = true; // Toggle: jingle -> content -> jingle -> ... (start with jingle)
 
     const playFile = (audioFile, isJingle, onEnd) => {
       const stream = fs.createReadStream(audioFile);
