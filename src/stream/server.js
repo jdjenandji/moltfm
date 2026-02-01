@@ -12,7 +12,7 @@ const { spawn } = require('child_process');
 const { ContentGenerator } = require('../content-generator');
 const { ScriptToAudio } = require('../tts/openai');
 
-const PORT = process.env.STREAM_PORT || 8000;
+const PORT = process.env.PORT || process.env.STREAM_PORT || 8000;
 const QUEUE_MIN = 3; // Minimum segments in queue before generating more
 
 class AudioQueue {
@@ -90,9 +90,9 @@ class StreamServer {
     await this.contentGen.init();
     await this.tts.init();
     
-    // Generate initial content if queue is empty
+    // Generate initial content in background (don't block startup)
     if (this.queue.needsMore()) {
-      await this.generateContent();
+      this.generateContent().catch(err => console.error('Background generation failed:', err.message));
     }
   }
 
@@ -317,7 +317,7 @@ class StreamServer {
     
     const server = this.createServer();
     
-    server.listen(this.port, () => {
+    server.listen(this.port, '0.0.0.0', () => {
       console.log(`
 ╔═══════════════════════════════════════╗
 ║         🦞 MoltFM is LIVE! 🦞         ║
