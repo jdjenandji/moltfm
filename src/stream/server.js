@@ -119,19 +119,28 @@ class StreamServer {
   }
 
   async loadJingles() {
-    try {
-      await fs.promises.mkdir(this.jinglesDir, { recursive: true });
-      const files = await fs.promises.readdir(this.jinglesDir);
-      this.jingles = files
-        .filter(f => f.endsWith('.mp3'))
-        .map(f => path.join(this.jinglesDir, f));
-      if (this.jingles.length > 0) {
-        console.log(`🎵 Loaded ${this.jingles.length} jingles`);
+    // Try assets/jingles first (committed), then output/jingles (local dev)
+    const jingleDirs = [
+      path.join(__dirname, '../../assets/jingles'),
+      this.jinglesDir
+    ];
+    
+    for (const dir of jingleDirs) {
+      try {
+        const files = await fs.promises.readdir(dir);
+        const mp3s = files.filter(f => f.endsWith('.mp3'));
+        if (mp3s.length > 0) {
+          this.jingles = mp3s.map(f => path.join(dir, f));
+          console.log(`🎵 Loaded ${this.jingles.length} jingles from ${dir}`);
+          return;
+        }
+      } catch (e) {
+        // Try next directory
       }
-    } catch (e) {
-      console.log('⚠️ No jingles found');
-      this.jingles = [];
     }
+    
+    console.log('⚠️ No jingles found');
+    this.jingles = [];
   }
 
   getRandomJingle() {
