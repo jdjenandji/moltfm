@@ -99,8 +99,12 @@ class StreamServer {
         await this.tts.init();
         console.log('✅ Content generators ready');
         
-        // Generate initial content in background
-        if (this.queue.needsMore()) {
+        // If queue is empty, generate first content NOW (blocking)
+        if (this.queue.length === 0) {
+          console.log('📻 Queue empty - generating first segment (this may take a minute)...');
+          await this.generateContent();
+        } else if (this.queue.needsMore()) {
+          // Generate more in background
           this.generateContent().catch(err => console.error('Background generation failed:', err.message));
         }
       } catch (err) {
