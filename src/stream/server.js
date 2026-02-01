@@ -3,17 +3,23 @@
  * Continuous audio stream with auto-generation
  */
 
-require('dotenv').config();
+try { require('dotenv').config(); } catch(e) { /* dotenv optional */ }
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
-const { ContentGenerator } = require('../content-generator');
-const { ScriptToAudio } = require('../tts/openai');
 
 const PORT = process.env.PORT || process.env.STREAM_PORT || 8000;
 const QUEUE_MIN = 3; // Minimum segments in queue before generating more
+
+// Lazy load heavy dependencies
+let ContentGenerator, ScriptToAudio;
+function loadGenerators() {
+  if (!ContentGenerator) {
+    ContentGenerator = require('../content-generator').ContentGenerator;
+    ScriptToAudio = require('../tts/openai').ScriptToAudio;
+  }
+}
 
 class AudioQueue {
   constructor(audioDir) {
@@ -71,33 +77,42 @@ class StreamServer {
     this.isGenerating = false;
     this.currentFile = null;
     this.nowPlaying = null;
-    
-    // Content generation
-    this.contentGen = new ContentGenerator({
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-      moltbookApiKey: process.env.MOLTBOOK_API_KEY,
-      outputDir: './output'
-    });
-    
-    this.tts = new ScriptToAudio(
-      process.env.OPENAI_API_KEY,
-      this.audioDir
-    );
+    this.contentGen = null;
+    this.tts = null;
   }
 
   async init() {
+    console.log('🚀 Initializing MoltFM...');
     await this.queue.init();
-    await this.contentGen.init();
-    await this.tts.init();
     
-    // Generate initial content in background (don't block startup)
-    if (this.queue.needsMore()) {
-      this.generateContent().catch(err => console.error('Background generation failed:', err.message));
+    // Lazy init generators only if we have API keys
+    if (process.env.ANTHROPIC_API_KEY && process.env.OPENAI_API_KEY) {
+      try {
+        loadGenerators();
+        this.contentGen = new ContentGenerator({
+          anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+          moltbookApiKey: process.env.MOLTBOOK_API_KEY,
+          outputDir: './output'
+        });
+        this.tts = new ScriptToAudio(process.env.OPENAI_API_KEY, this.audioDir);
+        await this.contentGen.init();
+        await this.tts.init();
+        console.log('✅ Content generators ready');
+        
+        // Generate initial content in background
+        if (this.queue.needsMore()) {
+          this.generateContent().catch(err => console.error('Background generation failed:', err.message));
+        }
+      } catch (err) {
+        console.error('⚠️ Generator init failed (will run without auto-gen):', err.message);
+      }
+    } else {
+      console.log('⚠️ Missing API keys - running in playback-only mode');
     }
   }
 
   async generateContent() {
-    if (this.isGenerating) return;
+    if (this.isGenerating || !this.contentGen || !this.tts) return;
     this.isGenerating = true;
     
     console.log('\n🎬 Generating new content...');
@@ -107,7 +122,7 @@ class StreamServer {
       const segment = await this.contentGen.generateRandom();
       
       // Convert to audio
-      const baseName = path.basename(segment.timestamp).replace(/[:.]/g, '-');
+      const baseName = new Date().toISOString().replace(/[:.]/g, '-');
       const audioPath = await this.tts.scriptToAudio(
         segment.script,
         `${segment.type}_${baseName}.mp3`
@@ -390,13 +405,19 @@ class StreamServer {
 
 // CLI
 if (require.main === module) {
+  const port = process.env.PORT || process.env.STREAM_PORT || 8000;
+  console.log('MoltFM starting on port', port);
+  
   const server = new StreamServer({
-    port: process.env.STREAM_PORT || 8000,
+    port,
     audioDir: process.env.OUTPUT_DIR ? `${process.env.OUTPUT_DIR}/audio` : './output/audio',
     scriptsDir: process.env.OUTPUT_DIR ? `${process.env.OUTPUT_DIR}/scripts` : './output/scripts'
   });
 
-  server.start().catch(console.error);
+  server.start().catch(err => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
 }
 
 module.exports = { StreamServer, AudioQueue };
