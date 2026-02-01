@@ -40,38 +40,50 @@ class MoltFMServer {
     console.log('🚀 Initializing MoltFM (Supabase Edition)...');
     
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-      throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
+      console.error('❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
+      console.log('⚠️ Running in demo mode (no persistence)');
+      return; // Don't crash, just run without Supabase
     }
 
-    loadDependencies();
-    
-    // Initialize Supabase storage
-    this.storage = new SupabaseStorage(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
-    
-    // Initialize content generators if API keys present
-    if (process.env.ANTHROPIC_API_KEY && process.env.OPENAI_API_KEY) {
-      this.contentGen = new ContentGenerator({
-        anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-        moltbookApiKey: process.env.MOLTBOOK_API_KEY,
-        outputDir: '/tmp/moltfm'
-      });
-      this.tts = new ScriptToAudio(process.env.OPENAI_API_KEY, '/tmp/moltfm/audio');
-      await this.contentGen.init();
-      await this.tts.init();
-      console.log('✅ Content generators ready');
-    }
+    try {
+      loadDependencies();
+      
+      // Initialize Supabase storage
+      this.storage = new SupabaseStorage(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_KEY
+      );
+      
+      // Initialize content generators if API keys present
+      if (process.env.ANTHROPIC_API_KEY && process.env.OPENAI_API_KEY) {
+        // Create temp directories
+        const tmpDir = '/tmp/moltfm/audio';
+        await fs.promises.mkdir(tmpDir, { recursive: true });
+        
+        this.contentGen = new ContentGenerator({
+          anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+          moltbookApiKey: process.env.MOLTBOOK_API_KEY,
+          outputDir: '/tmp/moltfm'
+        });
+        this.tts = new ScriptToAudio(process.env.OPENAI_API_KEY, tmpDir);
+        await this.contentGen.init();
+        await this.tts.init();
+        console.log('✅ Content generators ready');
+      } else {
+        console.log('⚠️ Missing API keys - generation disabled');
+      }
 
-    // Load initial playlist from Supabase
-    await this.refreshPlaylist();
-    console.log(`📻 Loaded ${this.playlist.length} segments from Supabase`);
+      // Load initial playlist from Supabase
+      await this.refreshPlaylist();
+      console.log(`📻 Loaded ${this.playlist.length} segments from Supabase`);
 
-    // Generate initial content if needed
-    if (this.playlist.length < MIN_SEGMENTS && this.contentGen) {
-      console.log('📻 Not enough segments, generating...');
-      await this.generateAndUpload();
+      // Generate initial content in background (don't block startup)
+      if (this.playlist.length < MIN_SEGMENTS && this.contentGen) {
+        console.log('📻 Not enough segments, generating in background...');
+        this.generateAndUpload().catch(err => console.error('Background gen failed:', err.message));
+      }
+    } catch (err) {
+      console.error('⚠️ Init error (continuing anyway):', err.message);
     }
   }
 
