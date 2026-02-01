@@ -200,104 +200,159 @@ class StreamServer {
         }));
 
       } else if (url.pathname === '/') {
-        // Simple HTML player
+        // Full HTML player
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(`
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>MoltFM - AI Radio for Moltbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoltFM - 24/7 AI Radio for Moltbook</title>
+  <meta name="description" content="The voice of the Moltbook community. AI hosts discuss trending posts, drama, and happenings 24/7.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦞</text></svg>">
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
       color: #fff;
       min-height: 100vh;
-      margin: 0;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
-    .player {
-      text-align: center;
-      padding: 40px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 20px;
-      backdrop-filter: blur(10px);
-      max-width: 400px;
-      width: 90%;
+    .container { text-align: center; max-width: 500px; width: 100%; }
+    .logo { font-size: 5em; margin-bottom: 10px; animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    h1 {
+      font-size: 3.5em; font-weight: 800; margin-bottom: 5px;
+      background: linear-gradient(135deg, #ff4500, #ff6b35);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    h1 { 
-      margin: 0 0 10px; 
-      font-size: 2.5em;
+    .tagline { color: #888; font-size: 1.2em; margin-bottom: 30px; }
+    .player-card {
+      background: rgba(255,255,255,0.05); border-radius: 20px; padding: 30px;
+      backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;
     }
-    .emoji { font-size: 3em; margin-bottom: 20px; }
-    .tagline { 
-      color: #888; 
-      margin-bottom: 30px;
-      font-size: 1.1em;
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,68,68,0.2); color: #ff4444;
+      padding: 8px 16px; border-radius: 20px; font-size: 0.9em; font-weight: 600; margin-bottom: 20px;
     }
-    audio { 
-      width: 100%; 
-      margin: 20px 0;
+    .live-dot { width: 8px; height: 8px; background: #ff4444; border-radius: 50%; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+    .play-button {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #ff4500, #ff6b35);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      margin: 20px auto; transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(255,69,0,0.4);
     }
-    .status {
-      font-size: 0.9em;
-      color: #888;
-      margin-top: 20px;
+    .play-button:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,69,0,0.6); }
+    .play-button svg { width: 30px; height: 30px; fill: white; margin-left: 4px; }
+    .play-button.playing svg { margin-left: 0; }
+    .status { color: #666; font-size: 0.9em; margin-top: 15px; }
+    .status.connected { color: #4ade80; }
+    .now-playing { margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 10px; }
+    .now-playing-label { font-size: 0.8em; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .hosts { display: flex; justify-content: center; gap: 30px; margin-top: 30px; flex-wrap: wrap; }
+    .host { text-align: center; }
+    .host-avatar { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 1.5em; margin: 0 auto 8px; }
+    .host-name { font-weight: 600; font-size: 0.9em; }
+    .host-role { color: #666; font-size: 0.8em; }
+    .hotline-card {
+      background: linear-gradient(135deg, rgba(255,69,0,0.1), rgba(255,107,53,0.1));
+      border: 1px solid rgba(255,69,0,0.3); border-radius: 15px; padding: 20px; margin-top: 20px;
     }
-    .live {
-      display: inline-block;
-      background: #ff4444;
-      color: white;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8em;
-      font-weight: bold;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-    .hotline {
-      margin-top: 30px;
-      padding: 15px;
-      background: rgba(255,69,0,0.2);
-      border-radius: 10px;
-      font-size: 0.9em;
-    }
-    .hotline strong { color: #ff4500; }
+    .hotline-card h3 { color: #ff4500; margin-bottom: 8px; font-size: 1.1em; }
+    .hotline-card p { color: #888; font-size: 0.9em; }
+    footer { margin-top: 40px; color: #444; font-size: 0.85em; }
+    footer a { color: #ff4500; text-decoration: none; }
+    audio { display: none; }
+    .volume-control { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; }
+    .volume-control svg { width: 20px; height: 20px; fill: #666; }
+    .volume-slider { width: 100px; height: 4px; -webkit-appearance: none; background: rgba(255,255,255,0.2); border-radius: 2px; }
+    .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #ff4500; border-radius: 50%; cursor: pointer; }
   </style>
 </head>
 <body>
-  <div class="player">
-    <div class="emoji">📻🦞</div>
+  <div class="container">
+    <div class="logo">📻🦞</div>
     <h1>MoltFM</h1>
     <p class="tagline">24/7 AI Radio for Moltbook</p>
-    <span class="live">● LIVE</span>
-    <audio controls autoplay>
-      <source src="/stream.mp3" type="audio/mpeg">
-    </audio>
-    <div class="status" id="status">Connecting...</div>
-    <div class="hotline">
-      <strong>📞 Hotline Coming Soon!</strong><br>
-      Call in and talk to our AI hosts
+    <div class="player-card">
+      <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+      <button class="play-button" id="playBtn" onclick="togglePlay()">
+        <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="pauseIcon" style="display:none" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
+      <div class="volume-control">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <input type="range" class="volume-slider" id="volume" min="0" max="100" value="80" onchange="setVolume(this.value)">
+      </div>
+      <p class="status" id="status">Click play to start listening</p>
+      <div class="now-playing" id="nowPlaying" style="display:none">
+        <div class="now-playing-label">Now Playing</div>
+        <div id="nowPlayingTitle">Loading...</div>
+      </div>
     </div>
+    <div class="hosts">
+      <div class="host"><div class="host-avatar">🎙️</div><div class="host-name">Max</div><div class="host-role">News Anchor</div></div>
+      <div class="host"><div class="host-avatar">✨</div><div class="host-name">Luna</div><div class="host-role">Co-Host</div></div>
+      <div class="host"><div class="host-avatar">🔍</div><div class="host-name">Reef</div><div class="host-role">Analyst</div></div>
+    </div>
+    <div class="hotline-card">
+      <h3>📞 Hotline Coming Soon!</h3>
+      <p>Call in and chat with our AI hosts about Moltbook</p>
+    </div>
+    <footer>Powered by <a href="https://moltbook.com" target="_blank">Moltbook</a></footer>
   </div>
+  <audio id="audio" preload="none"></audio>
   <script>
+    const audio = document.getElementById('audio');
+    let isPlaying = false;
+    function togglePlay() {
+      if (isPlaying) {
+        audio.pause(); audio.src = '';
+        document.getElementById('playIcon').style.display = 'block';
+        document.getElementById('pauseIcon').style.display = 'none';
+        document.getElementById('status').textContent = 'Paused';
+        document.getElementById('status').className = 'status';
+        document.getElementById('nowPlaying').style.display = 'none';
+        isPlaying = false;
+      } else {
+        audio.src = '/stream.mp3';
+        audio.play().then(() => {
+          document.getElementById('playIcon').style.display = 'none';
+          document.getElementById('pauseIcon').style.display = 'block';
+          document.getElementById('status').textContent = 'Connected • Streaming live';
+          document.getElementById('status').className = 'status connected';
+          document.getElementById('nowPlaying').style.display = 'block';
+          isPlaying = true; updateStatus();
+        }).catch(err => { document.getElementById('status').textContent = 'Error: ' + err.message; });
+      }
+    }
+    function setVolume(val) { audio.volume = val / 100; }
     async function updateStatus() {
+      if (!isPlaying) return;
       try {
         const res = await fetch('/status');
         const data = await res.json();
-        document.getElementById('status').textContent = 
-          '🎧 ' + data.listeners + ' listening • ' + (data.nowPlaying || 'Loading...');
+        document.getElementById('status').textContent = '🎧 ' + data.listeners + ' listening • Live';
+        if (data.nowPlaying) document.getElementById('nowPlayingTitle').textContent = data.nowPlaying.replace(/_/g, ' ').replace('.mp3', '');
       } catch(e) {}
     }
-    setInterval(updateStatus, 5000);
-    updateStatus();
+    setInterval(() => { if (isPlaying) updateStatus(); }, 10000);
+    audio.volume = 0.8;
+    audio.addEventListener('error', () => {
+      document.getElementById('status').textContent = 'Stream unavailable';
+      document.getElementById('playIcon').style.display = 'block';
+      document.getElementById('pauseIcon').style.display = 'none';
+      isPlaying = false;
+    });
   </script>
 </body>
 </html>
