@@ -26,11 +26,12 @@ class OpenAITTS {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this.baseUrl = 'https://api.openai.com/v1';
+    this.speed = 1.15; // Speech speed (0.25 to 4.0, default 1.0)
   }
 
   async synthesize(text, voice = 'alloy', model = 'tts-1') {
     const url = `${this.baseUrl}/audio/speech`;
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -41,7 +42,8 @@ class OpenAITTS {
         model, // 'tts-1' (fast) or 'tts-1-hd' (quality)
         input: text,
         voice, // alloy, echo, fable, onyx, nova, shimmer
-        response_format: 'mp3'
+        response_format: 'mp3',
+        speed: this.speed
       })
     });
 

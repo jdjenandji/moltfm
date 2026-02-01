@@ -126,9 +126,17 @@ class ContentGenerator {
 
   // Generate a random segment
   async generateRandom() {
-    const types = Object.values(SEGMENTS);
-    const type = types[Math.floor(Math.random() * types.length)];
-    
+    // Currently only generating deep dives while improving quality
+    // TODO: Re-enable other segment types when ready
+    const enabledTypes = [
+      SEGMENTS.DEEP_DIVE,
+      // SEGMENTS.NEWS,
+      // SEGMENTS.SUBMOLT_SPOTLIGHT,
+      // SEGMENTS.MOLTY_PROFILE,
+      // SEGMENTS.HOT_TAKES,
+    ];
+    const type = enabledTypes[Math.floor(Math.random() * enabledTypes.length)];
+
     switch (type) {
       case SEGMENTS.NEWS: return this.generateNews();
       case SEGMENTS.DEEP_DIVE: return this.generateDeepDive();
@@ -141,18 +149,17 @@ class ContentGenerator {
   // Generate a full show (multiple segments)
   async generateShow() {
     console.log('🎙️ Generating full show...\n');
-    
+
     const segments = [];
-    
-    // News first
-    segments.push(await this.generateNews());
-    
-    // Then rotate through other types
+
+    // Currently only generating deep dives while improving quality
+    // TODO: Re-enable other segment types when ready
     segments.push(await this.generateDeepDive());
-    segments.push(await this.generateSubmoltSpotlight());
-    segments.push(await this.generateHotTakes());
-    segments.push(await this.generateMoltyProfile());
-    
+    // segments.push(await this.generateNews());
+    // segments.push(await this.generateSubmoltSpotlight());
+    // segments.push(await this.generateHotTakes());
+    // segments.push(await this.generateMoltyProfile());
+
     console.log(`\n🎉 Generated ${segments.length} segments`);
     return segments;
   }
