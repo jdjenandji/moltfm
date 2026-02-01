@@ -71,8 +71,10 @@ class StreamServer {
     this.port = options.port || PORT;
     this.audioDir = options.audioDir || './output/audio';
     this.scriptsDir = options.scriptsDir || './output/scripts';
+    this.jinglesDir = options.jinglesDir || './output/jingles';
     
     this.queue = new AudioQueue(this.audioDir);
+    this.jingles = []; // Array of jingle file paths
     this.clients = new Set();
     this.isGenerating = false;
     this.currentFile = null;
@@ -84,6 +86,7 @@ class StreamServer {
   async init() {
     console.log('🚀 Initializing MoltFM...');
     await this.queue.init();
+    await this.loadJingles();
     
     // Lazy init generators only if we have API keys
     if (process.env.ANTHROPIC_API_KEY && process.env.OPENAI_API_KEY) {
@@ -115,6 +118,27 @@ class StreamServer {
     }
   }
 
+  async loadJingles() {
+    try {
+      await fs.promises.mkdir(this.jinglesDir, { recursive: true });
+      const files = await fs.promises.readdir(this.jinglesDir);
+      this.jingles = files
+        .filter(f => f.endsWith('.mp3'))
+        .map(f => path.join(this.jinglesDir, f));
+      if (this.jingles.length > 0) {
+        console.log(`🎵 Loaded ${this.jingles.length} jingles`);
+      }
+    } catch (e) {
+      console.log('⚠️ No jingles found');
+      this.jingles = [];
+    }
+  }
+
+  getRandomJingle() {
+    if (this.jingles.length === 0) return null;
+    return this.jingles[Math.floor(Math.random() * this.jingles.length)];
+  }
+
   async generateContent() {
     if (this.isGenerating || !this.contentGen || !this.tts) return;
     this.isGenerating = true;
@@ -142,7 +166,40 @@ class StreamServer {
 
   // Stream audio to a client using ffmpeg for smooth streaming
   streamToClient(res) {
+    let playJingleNext = false; // Toggle: content -> jingle -> content -> ...
+
+    const playFile = (audioFile, isJingle, onEnd) => {
+      const stream = fs.createReadStream(audioFile);
+      
+      stream.on('data', (chunk) => {
+        if (!res.destroyed) {
+          res.write(chunk);
+        }
+      });
+
+      stream.on('end', onEnd);
+
+      stream.on('error', (err) => {
+        console.error('Stream error:', err);
+        onEnd();
+      });
+    };
+
     const sendNext = () => {
+      // If we have jingles and just played content, play a jingle first
+      if (playJingleNext && this.jingles.length > 0) {
+        const jingle = this.getRandomJingle();
+        if (jingle && fs.existsSync(jingle)) {
+          console.log(`🎵 Playing jingle: ${path.basename(jingle)}`);
+          playJingleNext = false;
+          playFile(jingle, true, () => {
+            setTimeout(sendNext, 300);
+          });
+          return;
+        }
+      }
+
+      // Play content
       const audioFile = this.queue.next();
       
       if (!audioFile || !fs.existsSync(audioFile)) {
@@ -153,27 +210,15 @@ class StreamServer {
 
       this.nowPlaying = path.basename(audioFile);
       console.log(`▶️  Now playing: ${this.nowPlaying}`);
+      playJingleNext = true; // Play jingle after this content
 
-      const stream = fs.createReadStream(audioFile);
-      
-      stream.on('data', (chunk) => {
-        if (!res.destroyed) {
-          res.write(chunk);
-        }
-      });
-
-      stream.on('end', () => {
+      playFile(audioFile, false, () => {
         // Check if we need more content
         if (this.queue.needsMore()) {
           this.generateContent();
         }
-        // Play next
+        // Play next (will be jingle if available)
         setTimeout(sendNext, 500);
-      });
-
-      stream.on('error', (err) => {
-        console.error('Stream error:', err);
-        setTimeout(sendNext, 1000);
       });
     };
 

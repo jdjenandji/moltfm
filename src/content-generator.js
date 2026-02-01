@@ -52,7 +52,14 @@ class ContentGenerator {
     
     if (!post) throw new Error('No posts found for deep dive');
     
-    const comments = await this.moltbook.getComments(post.id);
+    // Comments API may fail, so make it optional
+    let comments = [];
+    try {
+      comments = await this.moltbook.getComments(post.id);
+    } catch (e) {
+      console.log('  (comments unavailable, continuing without)');
+    }
+    
     const script = await this.scriptGen.generateDeepDive(post, comments);
     
     return this.saveSegment(SEGMENTS.DEEP_DIVE, script, { postId: post.id });
