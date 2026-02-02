@@ -32,19 +32,65 @@ function loadDependencies() {
   }
 }
 
-// Listener tracking
-const listeners = new Map(); // sessionId -> { lastSeen, ip }
+// Listener tracking (Supabase-backed for persistence across deploys)
+const listeners = new Map(); // Local cache: sessionId -> { lastSeen, ip }
 const LISTENER_TIMEOUT = 60000; // 60s without heartbeat = gone
+let supabaseListeners = null; // Will be set after init
 
 function cleanupListeners() {
   const now = Date.now();
   for (const [id, data] of listeners) {
     if (now - data.lastSeen > LISTENER_TIMEOUT) {
       listeners.delete(id);
+      // Remove from Supabase too
+      if (supabaseListeners) {
+        supabaseListeners.from('moltfm_segments')
+          .delete()
+          .eq('type', '_listener')
+          .eq('title', id)
+          .then(() => {});
+      }
     }
   }
 }
 setInterval(cleanupListeners, 30000); // Cleanup every 30s
+
+async function syncListenersFromSupabase(storage) {
+  try {
+    // Load existing listeners from Supabase (sessions that survived restart)
+    const { data } = await storage.supabase
+      .from('moltfm_segments')
+      .select('title, created_at')
+      .eq('type', '_listener')
+      .gte('created_at', new Date(Date.now() - LISTENER_TIMEOUT).toISOString());
+    
+    if (data) {
+      for (const row of data) {
+        listeners.set(row.title, { lastSeen: new Date(row.created_at).getTime(), ip: '' });
+      }
+      console.log(`📊 Restored ${data.length} active listeners from Supabase`);
+    }
+  } catch (e) {
+    console.log('⚠️ Could not sync listeners:', e.message);
+  }
+}
+
+async function upsertListener(storage, sessionId, ip) {
+  try {
+    await storage.supabase
+      .from('moltfm_segments')
+      .upsert({
+        id: sessionId,
+        type: '_listener',
+        title: sessionId,
+        script: ip,
+        status: 'ready',
+        created_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+  } catch (e) {
+    // Ignore errors - local tracking still works
+  }
+}
 
 // Livestream sync - everyone hears the same thing
 const SEGMENT_DURATION = 120; // Estimated 2 min per segment
@@ -129,6 +175,10 @@ class MoltFMServer {
       // Load initial playlist from Supabase
       await this.refreshPlaylist();
       console.log(`📻 Loaded ${this.playlist.length} segments from Supabase`);
+      
+      // Sync listeners from Supabase (survives restarts)
+      supabaseListeners = this.storage.supabase;
+      await syncListenersFromSupabase(this.storage);
 
       // Initialize HLS generator
       this.hls = new HLSGenerator();
@@ -325,12 +375,16 @@ class MoltFMServer {
         }
 
       } else if (url.pathname === '/api/heartbeat') {
-        // Track listener
+        // Track listener (local + Supabase)
         const sessionId = url.searchParams.get('sid') || req.socket.remoteAddress;
-        listeners.set(sessionId, { 
-          lastSeen: Date.now(), 
-          ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress 
-        });
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        listeners.set(sessionId, { lastSeen: Date.now(), ip });
+        
+        // Persist to Supabase (async, don't block response)
+        if (this.storage) {
+          upsertListener(this.storage, sessionId, ip);
+        }
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ listeners: listeners.size }));
 
