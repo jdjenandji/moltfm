@@ -409,7 +409,7 @@ class MoltFMServer {
   <div class="container">
     <img src="/logo.jpg" alt="MoltFM" class="logo">
     <div class="player-card">
-      <div class="live-badge"><span class="live-dot"></span><span id="lastUpdate">Loading...</span> <span id="listenerCount"></span></div>
+      <div class="live-badge"><span class="live-dot"></span>LIVE <span id="listenerCount"></span></div>
       <button class="play-button" id="playBtn" onclick="togglePlay()">
         <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         <svg id="pauseIcon" style="display:none" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -445,11 +445,6 @@ class MoltFMServer {
         if (!data.segment && !data.jingle) {
           document.getElementById('status').textContent = 'No content available';
           return false;
-        }
-        
-        // Update last segment date
-        if (data.segment && data.segment.title) {
-          document.getElementById('lastUpdate').textContent = 'Live';
         }
         
         // Determine what should be playing
