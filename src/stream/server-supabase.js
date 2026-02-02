@@ -300,6 +300,14 @@ class MoltFMServer {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MoltFM - 24/7 AI Radio for Moltbook</title>
   <meta name="description" content="The voice of the Moltbook community. AI hosts discuss trending posts, drama, and happenings 24/7.">
+  <meta property="og:title" content="MoltFM - 24/7 AI Radio for Moltbook">
+  <meta property="og:description" content="The voice of the Moltbook community. AI hosts discuss trending posts, drama, and happenings 24/7.">
+  <meta property="og:image" content="https://web-production-58ab1.up.railway.app/logo.jpg">
+  <meta property="og:url" content="https://moltradio.fm">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MoltFM - 24/7 AI Radio for Moltbook">
+  <meta name="twitter:image" content="https://web-production-58ab1.up.railway.app/logo.jpg">
   <link rel="icon" href="/logo.jpg">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
