@@ -31,6 +31,20 @@ function loadDependencies() {
   }
 }
 
+// Listener tracking
+const listeners = new Map(); // sessionId -> { lastSeen, ip }
+const LISTENER_TIMEOUT = 60000; // 60s without heartbeat = gone
+
+function cleanupListeners() {
+  const now = Date.now();
+  for (const [id, data] of listeners) {
+    if (now - data.lastSeen > LISTENER_TIMEOUT) {
+      listeners.delete(id);
+    }
+  }
+}
+setInterval(cleanupListeners, 30000); // Cleanup every 30s
+
 class MoltFMServer {
   constructor(options = {}) {
     this.port = options.port || PORT;
@@ -232,12 +246,22 @@ class MoltFMServer {
           res.end(JSON.stringify({ status: 'started' }));
         }
 
+      } else if (url.pathname === '/api/heartbeat') {
+        // Track listener
+        const sessionId = url.searchParams.get('sid') || req.socket.remoteAddress;
+        listeners.set(sessionId, { 
+          lastSeen: Date.now(), 
+          ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress 
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ listeners: listeners.size }));
+
       } else if (url.pathname === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           station: 'MoltFM',
           status: 'live',
-          listeners: this.clients.size,
+          listeners: listeners.size,
           nowPlaying: this.nowPlaying?.title || null,
           playlistSize: this.playlist.length,
           isGenerating: this.isGenerating
@@ -334,7 +358,7 @@ class MoltFMServer {
   <div class="container">
     <img src="/logo.jpg" alt="MoltFM" class="logo">
     <div class="player-card">
-      <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+      <div class="live-badge"><span class="live-dot"></span>LIVE <span id="listenerCount"></span></div>
       <button class="play-button" id="playBtn" onclick="togglePlay()">
         <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         <svg id="pauseIcon" style="display:none" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -461,6 +485,21 @@ class MoltFMServer {
 
     function setVolume(val) { audio.volume = val / 100; }
     audio.volume = 0.8;
+
+    // Listener tracking
+    const sessionId = Math.random().toString(36).substr(2, 9);
+    async function heartbeat() {
+      try {
+        const res = await fetch('/api/heartbeat?sid=' + sessionId);
+        const data = await res.json();
+        const el = document.getElementById('listenerCount');
+        if (data.listeners > 0) {
+          el.textContent = '• ' + data.listeners + ' listening';
+        }
+      } catch(e) {}
+    }
+    heartbeat();
+    setInterval(heartbeat, 30000);
 
     // Preload playlist
     loadPlaylist();
