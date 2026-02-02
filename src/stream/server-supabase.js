@@ -22,12 +22,13 @@ const JINGLES = [
 ];
 
 // Lazy load heavy dependencies
-let ContentGenerator, ScriptToAudio, SupabaseStorage;
+let ContentGenerator, ScriptToAudio, SupabaseStorage, HLSGenerator;
 function loadDependencies() {
   if (!ContentGenerator) {
     ContentGenerator = require('../content-generator').ContentGenerator;
     ScriptToAudio = require('../tts/openai').ScriptToAudio;
     SupabaseStorage = require('../storage/supabase').SupabaseStorage;
+    HLSGenerator = require('../hls/generator').HLSGenerator;
   }
 }
 
@@ -62,6 +63,7 @@ class MoltFMServer {
     this.storage = null;
     this.contentGen = null;
     this.tts = null;
+    this.hls = null;
   }
   
   // Calculate current position in the livestream
@@ -127,6 +129,18 @@ class MoltFMServer {
       // Load initial playlist from Supabase
       await this.refreshPlaylist();
       console.log(`📻 Loaded ${this.playlist.length} segments from Supabase`);
+
+      // Initialize HLS generator
+      this.hls = new HLSGenerator();
+      await this.hls.init();
+      
+      // Generate HLS stream if we have segments
+      if (this.playlist.length > 0) {
+        console.log('🎬 Generating HLS stream...');
+        this.hls.generate(this.playlist, JINGLES).catch(err => 
+          console.error('HLS generation failed:', err.message)
+        );
+      }
 
       // Generate initial content in background (don't block startup)
       if (AUTO_GENERATE && this.playlist.length < MIN_SEGMENTS && this.contentGen) {
@@ -211,21 +225,57 @@ class MoltFMServer {
       
       res.setHeader('Access-Control-Allow-Origin', '*');
 
-      if (url.pathname === '/stream' || url.pathname === '/stream.mp3') {
-        // Redirect to current segment's audio URL
-        const segment = this.getNextSegment();
-        
-        if (!segment) {
-          res.writeHead(503, { 'Content-Type': 'text/plain' });
-          res.end('No content available yet.');
-          // Only auto-generate if enabled
-          if (AUTO_GENERATE) this.generateAndUpload();
-          return;
+      // HLS Stream endpoints
+      if (url.pathname === '/stream.m3u8') {
+        // Serve HLS playlist
+        try {
+          const playlistPath = this.hls?.getPlaylistPath();
+          if (playlistPath && fs.existsSync(playlistPath)) {
+            const content = fs.readFileSync(playlistPath);
+            res.writeHead(200, { 
+              'Content-Type': 'application/vnd.apple.mpegurl',
+              'Cache-Control': 'no-cache'
+            });
+            res.end(content);
+          } else {
+            res.writeHead(503, { 'Content-Type': 'text/plain' });
+            res.end('HLS stream not ready yet. Generating...');
+          }
+        } catch (e) {
+          res.writeHead(500);
+          res.end('Error serving playlist');
         }
+        return;
+      }
+      
+      if (url.pathname.startsWith('/chunks/')) {
+        // Serve HLS chunks
+        const chunkFile = url.pathname.replace('/chunks/', '');
+        const chunkPath = path.join(this.hls?.hlsDir || '/tmp/moltfm-hls', 'chunks', chunkFile);
+        try {
+          if (fs.existsSync(chunkPath)) {
+            const content = fs.readFileSync(chunkPath);
+            res.writeHead(200, { 
+              'Content-Type': 'video/mp2t',
+              'Cache-Control': 'max-age=3600'
+            });
+            res.end(content);
+          } else {
+            res.writeHead(404);
+            res.end('Chunk not found');
+          }
+        } catch (e) {
+          res.writeHead(500);
+          res.end('Error serving chunk');
+        }
+        return;
+      }
 
-        this.nowPlaying = segment;
-        res.writeHead(302, { 'Location': segment.audio_url });
+      if (url.pathname === '/stream' || url.pathname === '/stream.mp3') {
+        // Legacy: Redirect to HLS playlist
+        res.writeHead(302, { 'Location': '/stream.m3u8' });
         res.end();
+        return;
 
       } else if (url.pathname === '/api/playlist') {
         // Return playlist for client-side playback
@@ -430,94 +480,71 @@ class MoltFMServer {
     </div>
   </div>
   <audio id="audio" preload="none"></audio>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
     const audio = document.getElementById('audio');
+    let hls = null;
     let isPlaying = false;
-    let currentSrc = '';
-    let syncInterval = null;
 
-    // Sync with server livestream position
-    async function syncWithServer() {
-      try {
-        const res = await fetch('/api/sync');
-        const data = await res.json();
+    function initHLS() {
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+        });
+        hls.loadSource('/stream.m3u8');
+        hls.attachMedia(audio);
         
-        if (!data.segment && !data.jingle) {
-          document.getElementById('status').textContent = 'No content available';
-          return false;
-        }
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('HLS manifest loaded');
+          document.getElementById('status').textContent = 'Ready to play';
+        });
         
-        // Determine what should be playing
-        const targetSrc = data.isJingle ? data.jingle : data.segment?.audioUrl;
-        const targetTitle = data.isJingle ? '🎵 MoltFM' : (data.segment?.title || 'MoltFM');
-        
-        if (!targetSrc) return false;
-        
-        // Update title
-        document.getElementById('nowPlayingTitle').textContent = targetTitle;
-        
-        // If source changed, load new audio
-        if (currentSrc !== targetSrc) {
-          console.log('Syncing to:', data.isJingle ? 'jingle' : data.segment?.title);
-          currentSrc = targetSrc;
-          audio.src = targetSrc;
-          audio.currentTime = data.position;
-          if (isPlaying) audio.play();
-        } else if (isPlaying) {
-          // Correct drift if more than 3 seconds off
-          const drift = Math.abs(audio.currentTime - data.position);
-          if (drift > 3) {
-            console.log('Correcting drift:', drift.toFixed(1) + 's');
-            audio.currentTime = data.position;
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS error:', data.type, data.details);
+          if (data.fatal) {
+            document.getElementById('status').textContent = 'Stream error - retrying...';
+            setTimeout(() => {
+              hls.destroy();
+              initHLS();
+            }, 3000);
           }
-        }
-        
-        return true;
-      } catch(e) {
-        console.error('Sync failed:', e);
-        return false;
+        });
+      } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        audio.src = '/stream.m3u8';
+      } else {
+        document.getElementById('status').textContent = 'HLS not supported in this browser';
       }
     }
 
-    async function togglePlay() {
+    function togglePlay() {
       if (isPlaying) {
         audio.pause();
-        if (syncInterval) clearInterval(syncInterval);
         document.getElementById('playIcon').style.display = 'block';
         document.getElementById('pauseIcon').style.display = 'none';
         document.getElementById('status').textContent = 'Paused';
         document.getElementById('status').className = 'status';
         isPlaying = false;
       } else {
-        document.getElementById('status').textContent = 'Syncing...';
-        document.getElementById('playBtn').disabled = true;
-        
-        const synced = await syncWithServer();
-        
-        if (!synced) {
-          document.getElementById('status').textContent = 'No content available';
-          document.getElementById('playBtn').disabled = false;
-          return;
+        if (!hls && Hls.isSupported()) {
+          initHLS();
         }
         
-        audio.play();
-        document.getElementById('playIcon').style.display = 'none';
-        document.getElementById('pauseIcon').style.display = 'block';
-        document.getElementById('status').textContent = 'Live';
-        document.getElementById('status').className = 'status connected';
-        document.getElementById('nowPlaying').style.display = 'block';
-        document.getElementById('playBtn').disabled = false;
-        isPlaying = true;
-        
-        // Re-sync every 10 seconds to stay in sync
-        syncInterval = setInterval(syncWithServer, 10000);
+        audio.play().then(() => {
+          document.getElementById('playIcon').style.display = 'none';
+          document.getElementById('pauseIcon').style.display = 'block';
+          document.getElementById('status').textContent = 'Live';
+          document.getElementById('status').className = 'status connected';
+          document.getElementById('nowPlaying').style.display = 'block';
+          document.getElementById('nowPlayingTitle').textContent = 'MoltFM Live Stream';
+          isPlaying = true;
+        }).catch(err => {
+          console.error('Play failed:', err);
+          document.getElementById('status').textContent = 'Click play again';
+        });
       }
     }
-
-    audio.addEventListener('error', () => {
-      console.error('Audio error, re-syncing...');
-      if (isPlaying) syncWithServer();
-    });
 
     function setVolume(val) { audio.volume = val / 100; }
     audio.volume = 0.8;
@@ -536,6 +563,9 @@ class MoltFMServer {
     }
     heartbeat();
     setInterval(heartbeat, 30000);
+    
+    // Pre-initialize HLS
+    initHLS();
   </script>
 </body>
 </html>`;
