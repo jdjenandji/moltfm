@@ -45,6 +45,11 @@ function cleanupListeners() {
 }
 setInterval(cleanupListeners, 30000); // Cleanup every 30s
 
+// Livestream sync - everyone hears the same thing
+const SEGMENT_DURATION = 120; // Estimated 2 min per segment
+const JINGLE_DURATION = 5; // ~5 sec per jingle
+let streamStartTime = Date.now();
+
 class MoltFMServer {
   constructor(options = {}) {
     this.port = options.port || PORT;
@@ -57,6 +62,29 @@ class MoltFMServer {
     this.storage = null;
     this.contentGen = null;
     this.tts = null;
+  }
+  
+  // Calculate current position in the livestream
+  getStreamPosition() {
+    const now = Date.now();
+    const segmentWithJingle = SEGMENT_DURATION + JINGLE_DURATION;
+    const playlistCount = this.playlist.length || 1;
+    const totalLoopDuration = playlistCount * segmentWithJingle * 1000; // ms
+    
+    const elapsed = (now - streamStartTime) % totalLoopDuration;
+    const segmentIndex = Math.floor(elapsed / (segmentWithJingle * 1000));
+    const positionInSlot = (elapsed % (segmentWithJingle * 1000)) / 1000;
+    
+    // Are we in jingle or content?
+    const isJingle = positionInSlot < JINGLE_DURATION;
+    const positionInSegment = isJingle ? positionInSlot : positionInSlot - JINGLE_DURATION;
+    
+    return {
+      segmentIndex: segmentIndex % playlistCount,
+      isJingle,
+      position: positionInSegment,
+      serverTime: now
+    };
   }
 
   async init() {
@@ -256,6 +284,21 @@ class MoltFMServer {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ listeners: listeners.size }));
 
+      } else if (url.pathname === '/api/sync') {
+        // Get current livestream position
+        const position = this.getStreamPosition();
+        const segment = this.playlist[position.segmentIndex];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ...position,
+          segment: segment ? {
+            id: segment.id,
+            title: segment.title,
+            audioUrl: segment.audio_url
+          } : null,
+          jingle: JINGLES[position.segmentIndex % JINGLES.length]
+        }));
+
       } else if (url.pathname === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -390,113 +433,95 @@ class MoltFMServer {
   <script>
     const audio = document.getElementById('audio');
     let isPlaying = false;
-    let playlist = [];
-    let jingles = [];
-    let currentIndex = 0;
-    let playJingleNext = true; // Start with jingle
+    let currentSrc = '';
+    let syncInterval = null;
 
-    async function loadPlaylist() {
+    // Sync with server livestream position
+    async function syncWithServer() {
       try {
-        const [playlistRes, jinglesRes] = await Promise.all([
-          fetch('/api/playlist'),
-          fetch('/api/jingles')
-        ]);
-        const playlistData = await playlistRes.json();
-        const jinglesData = await jinglesRes.json();
-        playlist = playlistData.segments;
-        jingles = jinglesData.jingles || [];
-        currentIndex = 0;
-        console.log('Loaded', playlist.length, 'segments and', jingles.length, 'jingles');
+        const res = await fetch('/api/sync');
+        const data = await res.json();
         
-        // Show last segment date
-        if (playlist.length > 0 && playlist[0].createdAt) {
-          const date = new Date(playlist[0].createdAt);
-          const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-          document.getElementById('lastUpdate').textContent = 'Updated ' + formatted;
+        if (!data.segment && !data.jingle) {
+          document.getElementById('status').textContent = 'No content available';
+          return false;
         }
         
-        return playlist.length > 0;
+        // Update last segment date
+        if (data.segment && data.segment.title) {
+          document.getElementById('lastUpdate').textContent = 'Live';
+        }
+        
+        // Determine what should be playing
+        const targetSrc = data.isJingle ? data.jingle : data.segment?.audioUrl;
+        const targetTitle = data.isJingle ? '🎵 MoltFM' : (data.segment?.title || 'MoltFM');
+        
+        if (!targetSrc) return false;
+        
+        // Update title
+        document.getElementById('nowPlayingTitle').textContent = targetTitle;
+        
+        // If source changed, load new audio
+        if (currentSrc !== targetSrc) {
+          console.log('Syncing to:', data.isJingle ? 'jingle' : data.segment?.title);
+          currentSrc = targetSrc;
+          audio.src = targetSrc;
+          audio.currentTime = data.position;
+          if (isPlaying) audio.play();
+        } else if (isPlaying) {
+          // Correct drift if more than 3 seconds off
+          const drift = Math.abs(audio.currentTime - data.position);
+          if (drift > 3) {
+            console.log('Correcting drift:', drift.toFixed(1) + 's');
+            audio.currentTime = data.position;
+          }
+        }
+        
+        return true;
       } catch(e) {
-        console.error('Failed to load playlist:', e);
+        console.error('Sync failed:', e);
         return false;
       }
-    }
-
-    function getRandomJingle() {
-      if (jingles.length === 0) return null;
-      return jingles[Math.floor(Math.random() * jingles.length)];
-    }
-
-    function playNext() {
-      if (playlist.length === 0) {
-        document.getElementById('status').textContent = 'No content available';
-        return;
-      }
-      
-      // Play jingle first if needed
-      if (playJingleNext && jingles.length > 0) {
-        const jingle = getRandomJingle();
-        console.log('🎵 Playing jingle');
-        document.getElementById('nowPlayingTitle').textContent = '🎵 MoltFM Jingle';
-        audio.src = jingle;
-        audio.play();
-        playJingleNext = false;
-        return;
-      }
-      
-      // Play content segment
-      const segment = playlist[currentIndex];
-      currentIndex = (currentIndex + 1) % playlist.length;
-      
-      console.log('▶️ Playing segment:', segment.title);
-      audio.src = segment.audioUrl;
-      audio.play();
-      playJingleNext = true; // Play jingle after this
-      
-      document.getElementById('nowPlayingTitle').textContent = segment.title || segment.type;
     }
 
     async function togglePlay() {
       if (isPlaying) {
         audio.pause();
+        if (syncInterval) clearInterval(syncInterval);
         document.getElementById('playIcon').style.display = 'block';
         document.getElementById('pauseIcon').style.display = 'none';
         document.getElementById('status').textContent = 'Paused';
         document.getElementById('status').className = 'status';
         isPlaying = false;
       } else {
-        document.getElementById('status').textContent = 'Loading...';
+        document.getElementById('status').textContent = 'Syncing...';
         document.getElementById('playBtn').disabled = true;
         
-        if (playlist.length === 0) {
-          await loadPlaylist();
-        }
+        const synced = await syncWithServer();
         
-        if (playlist.length === 0) {
-          document.getElementById('status').textContent = 'No content yet - generating...';
-          fetch('/api/generate');
+        if (!synced) {
+          document.getElementById('status').textContent = 'No content available';
           document.getElementById('playBtn').disabled = false;
           return;
         }
         
-        playNext();
+        audio.play();
         document.getElementById('playIcon').style.display = 'none';
         document.getElementById('pauseIcon').style.display = 'block';
-        document.getElementById('status').textContent = 'Playing';
+        document.getElementById('status').textContent = 'Live';
         document.getElementById('status').className = 'status connected';
         document.getElementById('nowPlaying').style.display = 'block';
         document.getElementById('playBtn').disabled = false;
         isPlaying = true;
+        
+        // Re-sync every 10 seconds to stay in sync
+        syncInterval = setInterval(syncWithServer, 10000);
       }
     }
 
-    audio.addEventListener('ended', () => {
-      if (isPlaying) playNext();
-    });
-
     audio.addEventListener('error', () => {
-      console.error('Audio error, trying next');
-      if (isPlaying) playNext();
+      console.error('Audio error, re-syncing...');
+      if (isPlaying) syncWithServer();
     });
 
     function setVolume(val) { audio.volume = val / 100; }
@@ -516,9 +541,6 @@ class MoltFMServer {
     }
     heartbeat();
     setInterval(heartbeat, 30000);
-
-    // Preload playlist
-    loadPlaylist();
   </script>
 </body>
 </html>`;
