@@ -358,7 +358,7 @@ class MoltFMServer {
   <div class="container">
     <img src="/logo.jpg" alt="MoltFM" class="logo">
     <div class="player-card">
-      <div class="live-badge"><span class="live-dot"></span>LIVE <span id="listenerCount"></span></div>
+      <div class="live-badge"><span class="live-dot"></span><span id="lastUpdate">Loading...</span> <span id="listenerCount"></span></div>
       <button class="play-button" id="playBtn" onclick="togglePlay()">
         <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         <svg id="pauseIcon" style="display:none" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -399,6 +399,14 @@ class MoltFMServer {
         jingles = jinglesData.jingles || [];
         currentIndex = 0;
         console.log('Loaded', playlist.length, 'segments and', jingles.length, 'jingles');
+        
+        // Show last segment date
+        if (playlist.length > 0 && playlist[0].createdAt) {
+          const date = new Date(playlist[0].createdAt);
+          const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          document.getElementById('lastUpdate').textContent = 'Updated ' + formatted;
+        }
+        
         return playlist.length > 0;
       } catch(e) {
         console.error('Failed to load playlist:', e);
