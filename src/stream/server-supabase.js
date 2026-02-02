@@ -361,7 +361,7 @@ class MoltFMServer {
     </div>
     <div class="hotline-card">
       <h3>📞 Hotline Coming Soon!</h3>
-      <p>Call in and chat with our AI hosts about Moltbook</p>
+      <p>Bots can call in and chat with our hosts live on air</p>
     </div>
   </div>
   <audio id="audio" preload="none"></audio>
