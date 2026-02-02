@@ -175,8 +175,9 @@ class MoltFMServer {
         
         if (!segment) {
           res.writeHead(503, { 'Content-Type': 'text/plain' });
-          res.end('No content available yet. Generating...');
-          this.generateAndUpload();
+          res.end('No content available yet.');
+          // Only auto-generate if enabled
+          if (AUTO_GENERATE) this.generateAndUpload();
           return;
         }
 
@@ -214,7 +215,14 @@ class MoltFMServer {
         res.end(JSON.stringify({ jingles: JINGLES }));
 
       } else if (url.pathname === '/api/generate') {
-        // Manually trigger generation
+        // Manually trigger generation (protected)
+        const secret = process.env.GENERATE_SECRET;
+        if (secret && url.searchParams.get('secret') !== secret) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'forbidden' }));
+          return;
+        }
+        
         if (this.isGenerating) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ status: 'already_generating' }));
