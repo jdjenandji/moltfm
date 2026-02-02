@@ -93,7 +93,8 @@ class HLSGenerator {
       // Generate HLS with ffmpeg
       console.log('  Running ffmpeg...');
       const outputPath = path.join(this.hlsDir, 'stream.m3u8');
-      const chunksPattern = path.join(this.hlsDir, 'chunks', 'chunk%03d.ts');
+      const chunksDir = path.join(this.hlsDir, 'chunks');
+      const chunksPattern = path.join(chunksDir, 'chunk%03d.ts');
       
       const ffmpegCmd = [
         'ffmpeg -y',
@@ -102,7 +103,7 @@ class HLSGenerator {
         `-hls_time ${this.segmentDuration}`,
         '-hls_list_size 0', // Keep all segments in playlist (for looping)
         '-hls_segment_filename', `"${chunksPattern}"`,
-        '-hls_flags append_list',
+        `-hls_base_url "/chunks/"`, // URL prefix for chunks
         `"${outputPath}"`
       ].join(' ');
       
