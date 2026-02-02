@@ -1,2 +1,6 @@
+# Install ffmpeg for HLS generation
 [phases.setup]
-nixPkgs = ["ffmpeg"]
+nixPkgs = ["ffmpeg-full"]
+
+[phases.install]
+cmds = ["npm ci"]
