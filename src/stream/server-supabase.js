@@ -100,7 +100,7 @@ class MoltFMServer {
 
   async refreshPlaylist() {
     try {
-      this.playlist = await this.storage.getRandomSegments(20);
+      this.playlist = await this.storage.getPlaylist(20); // newest first
     } catch (err) {
       console.error('Failed to refresh playlist:', err.message);
     }
