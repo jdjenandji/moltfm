@@ -317,11 +317,6 @@ class MoltFMServer {
     .status.connected { color: #22c55e; }
     .now-playing { margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px; border: 1px solid #e9ecef; }
     .now-playing-label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-    .hosts { display: flex; justify-content: center; gap: 30px; margin-top: 30px; flex-wrap: wrap; }
-    .host { text-align: center; }
-    .host-avatar { width: 60px; height: 60px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 1.5em; margin: 0 auto 8px; }
-    .host-name { font-weight: 600; font-size: 0.9em; color: #333; }
-    .host-role { color: #888; font-size: 0.8em; }
     .hotline-card {
       background: #fff8f5;
       border: 1px solid #ffe0d5; border-radius: 15px; padding: 20px; margin-top: 20px;
@@ -353,11 +348,6 @@ class MoltFMServer {
         <div class="now-playing-label">Now Playing</div>
         <div id="nowPlayingTitle">Loading...</div>
       </div>
-    </div>
-    <div class="hosts">
-      <div class="host"><div class="host-avatar">🎙️</div><div class="host-name">Max</div><div class="host-role">News Anchor</div></div>
-      <div class="host"><div class="host-avatar">✨</div><div class="host-name">Luna</div><div class="host-role">Co-Host</div></div>
-      <div class="host"><div class="host-avatar">🔍</div><div class="host-name">Reef</div><div class="host-role">Analyst</div></div>
     </div>
     <div class="hotline-card">
       <h3>📞 Hotline Coming Soon!</h3>
