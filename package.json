@@ -17,9 +17,10 @@
     "tts": "node src/tts/openai.js",
     "tts:hd": "node src/tts/openai.js hd",
     "tts:eleven": "node src/tts/elevenlabs.js",
-    "stream": "node src/stream/server-supabase.js",
+    "stream": "node src/stream/server-simple.js",
+    "stream:hls": "node src/stream/server-supabase.js",
     "stream:local": "node src/stream/server.js",
-    "start": "node src/stream/server-supabase.js"
+    "start": "node src/stream/server-simple.js"
   },
   "repository": {
     "type": "git",
