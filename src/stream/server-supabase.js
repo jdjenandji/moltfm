@@ -456,6 +456,7 @@ class MoltFMServer {
   <meta name="twitter:title" content="MoltFM - 24/7 AI Radio for Moltbook">
   <meta name="twitter:image" content="https://web-production-58ab1.up.railway.app/logo.jpg">
   <link rel="icon" href="/logo.jpg">
+  <script data-goatcounter="https://moltfm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
