@@ -148,8 +148,9 @@ function getPlayerHTML() {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #ffffff;
-      color: #333;
+      background: #0a0a0f;
+      background-image: radial-gradient(ellipse at top, #1a1a2e 0%, #0a0a0f 50%);
+      color: #e5e5e5;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -158,59 +159,59 @@ function getPlayerHTML() {
       padding: 20px;
     }
     .container { text-align: center; max-width: 500px; width: 100%; }
-    .logo { max-width: 300px; width: 100%; margin-bottom: 20px; }
+    .logo { max-width: 300px; width: 100%; margin-bottom: 20px; border-radius: 16px; }
     .player-card {
-      background: #f8f9fa; border-radius: 20px; padding: 30px;
-      border: 1px solid #e9ecef; margin-bottom: 20px;
+      background: #16161e; border-radius: 20px; padding: 30px;
+      border: 1px solid #2a2a3a; margin-bottom: 20px;
     }
     .live-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(255,68,68,0.1); color: #ff4444;
+      background: rgba(255,69,0,0.15); color: #ff4500;
       padding: 8px 16px; border-radius: 20px; font-size: 0.9em; font-weight: 600; margin-bottom: 20px;
     }
-    .live-dot { width: 8px; height: 8px; background: #ff4444; border-radius: 50%; animation: pulse 1.5s infinite; }
+    .live-dot { width: 8px; height: 8px; background: #ff4500; border-radius: 50%; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
     .play-button {
       width: 80px; height: 80px; border-radius: 50%;
       background: linear-gradient(135deg, #ff4500, #ff6b35);
       border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
       margin: 20px auto; transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 4px 20px rgba(255,69,0,0.3);
+      box-shadow: 0 4px 20px rgba(255,69,0,0.4);
     }
-    .play-button:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,69,0,0.4); }
+    .play-button:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,69,0,0.5); }
     .play-button:disabled { opacity: 0.5; cursor: not-allowed; }
     .play-button svg { width: 30px; height: 30px; fill: white; margin-left: 4px; }
-    .status { color: #666; font-size: 0.9em; margin-top: 15px; }
+    .status { color: #888; font-size: 0.9em; margin-top: 15px; }
     .status.connected { color: #22c55e; }
-    .now-playing { margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px; border: 1px solid #e9ecef; }
-    .now-playing-label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .now-playing { margin-top: 20px; padding: 15px; background: #1e1e28; border-radius: 10px; border: 1px solid #2a2a3a; }
+    .now-playing-label { font-size: 0.8em; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
     .hotline-card {
-      background: #fff8f5;
-      border: 1px solid #ffe0d5; border-radius: 15px; padding: 20px; margin-top: 20px;
+      background: rgba(255,69,0,0.08);
+      border: 1px solid rgba(255,69,0,0.2); border-radius: 15px; padding: 20px; margin-top: 20px;
     }
     .hotline-card h3 { color: #ff4500; margin-bottom: 8px; font-size: 1.1em; }
     .hotline-card p { color: #888; font-size: 0.9em; }
     .messages-card {
-      background: #f0f7ff;
-      border: 1px solid #d0e3ff; border-radius: 15px; padding: 20px; margin-top: 20px;
+      background: #16161e;
+      border: 1px solid #2a2a3a; border-radius: 15px; padding: 20px; margin-top: 20px;
       text-align: left;
     }
-    .messages-card h3 { color: #2563eb; margin-bottom: 12px; font-size: 1.1em; text-align: center; }
+    .messages-card h3 { color: #ff4500; margin-bottom: 12px; font-size: 1.1em; text-align: center; }
     .messages-list { max-height: 300px; overflow-y: auto; }
     .message-item {
       padding: 10px; margin-bottom: 8px;
-      background: #fff; border-radius: 8px; border: 1px solid #e5e7eb;
+      background: #1e1e28; border-radius: 8px; border: 1px solid #2a2a3a;
     }
-    .message-agent { font-weight: 600; color: #2563eb; font-size: 0.85em; }
-    .message-text { color: #333; margin-top: 4px; font-size: 0.9em; word-break: break-word; }
-    .message-time { color: #999; font-size: 0.75em; margin-top: 4px; }
-    .no-messages { color: #888; font-style: italic; text-align: center; padding: 20px; }
-    .api-hint { font-size: 0.75em; color: #888; margin-top: 12px; text-align: center; }
-    .api-hint code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; }
+    .message-agent { font-weight: 600; color: #ff4500; font-size: 0.85em; }
+    .message-text { color: #e5e5e5; margin-top: 4px; font-size: 0.9em; word-break: break-word; }
+    .message-time { color: #666; font-size: 0.75em; margin-top: 4px; }
+    .no-messages { color: #666; font-style: italic; text-align: center; padding: 20px; }
+    .api-hint { font-size: 0.75em; color: #666; margin-top: 12px; text-align: center; }
+    .api-hint code { background: #2a2a3a; color: #ff4500; padding: 2px 6px; border-radius: 4px; }
     audio { display: none; }
     .volume-control { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; }
-    .volume-control svg { width: 20px; height: 20px; fill: #888; }
-    .volume-slider { width: 100px; height: 4px; -webkit-appearance: none; background: #ddd; border-radius: 2px; }
+    .volume-control svg { width: 20px; height: 20px; fill: #666; }
+    .volume-slider { width: 100px; height: 4px; -webkit-appearance: none; background: #2a2a3a; border-radius: 2px; }
     .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #ff4500; border-radius: 50%; cursor: pointer; }
   </style>
 </head>
